@@ -1,0 +1,44 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+- group: your-variable-group-name  # Replace with the name of your Azure DevOps variable group
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+    addToPath: true
+    architecture: 'x64'
+
+- script: |
+    # Install Azure CLI (if not already available in the pipeline agent)
+    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+    
+    # Log in to Azure CLI using service principal
+    az login --service-principal -u $(service_principal_id) -p $(service_principal_secret) --tenant $(tenant_id)
+
+    # Set environment variables for Terraform using values from Azure DevOps variable group
+    export TF_VAR_resource_group_name=$(resource_group_name)
+    export TF_VAR_location=$(location)
+    export TF_VAR_key_vault_name=$(key_vault_name)
+    export TF_VAR_vnet_subnet_id=$(vnet_subnet_id)
+    
+    # Initialize Terraform
+    terraform init
+    
+    # Plan and apply Terraform changes
+    terraform plan -var="resource_group_name=$(TF_VAR_resource_group_name)" \
+                   -var="location=$(TF_VAR_location)" \
+                   -var="key_vault_name=$(TF_VAR_key_vault_name)" \
+                   -var="vnet_subnet_id=$(TF_VAR_vnet_subnet_id)"
+    
+    terraform apply -auto-approve -var="resource_group_name=$(TF_VAR_resource_group_name)" \
+                                  -var="location=$(TF_VAR_location)" \
+                                  -var="key_vault_name=$(TF_VAR_key_vault_name)" \
+                                  -var="vnet_subnet_id=$(TF_VAR_vnet_subnet_id)"
+  displayName: 'Terraform Apply'
+
